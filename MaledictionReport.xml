@@ -12,7 +12,7 @@
    purpose="A plugin to help you notify others of landed maledictions"
    date_written="2024-7-24 17:59:57"
    requires="5.07"
-   version="1.1"
+   version="1.2"
   >
   
 <description trim="y">
@@ -284,6 +284,23 @@ end
       <send>
 	  -- Broadcast the malediction
       SendNoEcho("say @WWEAKEN'D! @C(@D%1@C)@Y")
+      </send>
+    </trigger>
+
+	<!-- Trigger for RAW FLESH -->
+    <trigger
+      name="RawFlesh"
+      match="^(.*?) flesh is ripped from (.*?) body\.$"
+      enabled="y"
+	  group="debuffs"
+      regexp="y"
+      send_to="12"
+      ignore_case="y"
+      sequence="100" 
+    >
+      <send>
+	  -- Broadcast the malediction
+      SendNoEcho("say @WRAW'D! @C(@D%1@C)@Y")
       </send>
     </trigger>
 	
@@ -567,3 +584,4 @@ end
   </triggers>
 
 </muclient>
+
