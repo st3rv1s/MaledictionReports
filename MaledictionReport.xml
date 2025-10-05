@@ -192,7 +192,7 @@ function OnHelp ()
 |  If plugin is OFF but CommLog plugin is present it will post there!   |
 |                                                                       |
 +-----------------------------------------------------------------------+
-]], versionStr))
+    ]], versionStr))
 end
 
 local _Debuff_Master = "ON"
@@ -544,3 +544,4 @@ end
   </triggers>
 
 </muclient>
+
