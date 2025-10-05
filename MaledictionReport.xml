@@ -195,7 +195,7 @@ function OnHelp ()
     ]], versionStr))
 end
 
-local _Debuff_Master = "ON"
+local _Debuff_Master = "OFF"
 local _Channel = "say"
 local _CurrentKoboldTarget = nil
 local _CurrentKoboldSpell = nil
@@ -544,4 +544,5 @@ end
   </triggers>
 
 </muclient>
+
 
