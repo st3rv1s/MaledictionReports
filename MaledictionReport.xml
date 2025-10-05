@@ -13,20 +13,7 @@
    date_written="2024-7-24 17:59:57"
    requires="5.07"
    version="1.21"
-  >
-  
-<description trim="y">
-<![CDATA[
-
-+-------------------------[Malediction Report!]-------------------------+
-|                                                                       |
-|          Type 'malrep' to toggle between ON and OFF state.            |
-|                                                                       |
-+-----------------------------------------------------------------------+
-
-]]>
-</description> 
-  
+  >  
   </plugin>
   
 <!--  Get our standard constants -->
@@ -46,6 +33,16 @@
     script="debuff_toggle"
     >
     </alias>
+
+    <!-- Define the alias for HELP FILE -->
+    <alias
+    match="^malrep\shelp$"
+    enabled="y"
+    omit_from_output="n"
+    regexp="y"
+    sequence="100"
+    script="OnHelp"
+    />
 	
 	<!-- Alias for changing channel -->
     <alias
@@ -182,26 +179,48 @@ json = require("json")
 require "gmcphelper"
 
 function OnHelp ()
-  world.Note (world.GetPluginInfo (world.GetPluginID (), 3))
+    local version = GetPluginInfo(GetPluginID(), 19) or 0
+    local versionStr = tostring(version)
+
+    world.Note(string.format([[
++-----------------[Malediction Report Version: %s ]-------------------+
+|                                                                       |
+|          Type 'malrep' to toggle between ON and OFF state.            |
+|             Type malrep <channel> to change the channel.              |
+|               Type malrep help to display this output                 |
+|                                                                       |
+|  If plugin is OFF but CommLog plugin is present it will post there!   |
+|                                                                       |
++-----------------------------------------------------------------------+
+]], versionStr))
 end
 
 local _Debuff_Master = "ON"
 local _Channel = "say"
 local _CurrentKoboldTarget = nil
 local _CurrentKoboldSpell = nil
+local _ExternalPluginID = "b555825a4a5700c35fa80780"
+local _CommLog = "false"
+
+function _checkExternalPlugin()
+    local _plugin_info = GetPluginInfo(_ExternalPluginID, 1)
+    if _plugin_info then
+        _CommLog = "true"
+    else
+        _CommLog = "false"
+    end
+end
+
+_checkExternalPlugin()
 
 function debuff_toggle()
- 	if _Debuff_Master == "ON"
- 		then
- 			_Debuff_Master = "OFF"
- 			EnableGroup("debuffs", false)
-			ColourNote ("darkred", "dimgrey", "Malediction reports are DISABLED!")
-	elseif _Debuff_Master == "OFF"
-		then
-			_Debuff_Master = "ON"
-			EnableGroup("debuffs", true)
-			ColourNote ("limegreen", "dimgrey", "Malediction reports are ENABLED!")
-	end
+    if _Debuff_Master == "ON" then
+        _Debuff_Master = "OFF"
+        ColourNote("darkred", "dimgrey", "Malediction reports are OFF.")
+    else
+        _Debuff_Master = "ON"
+        ColourNote("limegreen", "dimgrey", "Malediction reports are ON.")
+    end
 end
 
 function SetChannel(name, line, wildcards)
@@ -211,10 +230,20 @@ function SetChannel(name, line, wildcards)
 end
 
 function Announce(name, line, wildcards)
-    local target = wildcards[1] or "unknown"
-    local spell = name:upper()  -- Use the trigger name as the spell/malediction
-    -- Broadcast with color codes
-    SendNoEcho(string.format("%s @W%s'D! @C(@D%s@C)@w", _Channel, spell, target))
+    local _target = wildcards[1] or "unknown"
+    local _spell = name:upper()
+
+    -- Message for normal channel includes channel prefix
+    if _Debuff_Master == "ON" then
+        local _message_channel = string.format("%s @W%s'D! @C(@D%s@C)@w", _Channel, _spell, _target)
+        SendNoEcho(_message_channel)
+    end
+
+    -- Message for external plugin does NOT include channel
+    if _Debuff_Master == "OFF" and _CommLog == "true" then
+        local _message_comm = string.format("@W%s'D! @C(@D%s@C)@w", _spell, _target)
+        CallPlugin(_ExternalPluginID, "storeFromOutside", _message_comm)
+    end
 end
 
 function KoboldFirstLine(name, line, wildcards)
@@ -228,8 +257,19 @@ end
 
 function KoboldSecondLine(name, line, wildcards)
     if _CurrentKoboldTarget and _CurrentKoboldSpell then
-		SendNoEcho(string.format("%s @W%s'D! @C(@D%s@C)@w", _Channel, _CurrentKoboldSpell:upper(), _CurrentKoboldTarget))
+        -- Message for normal channel includes channel
+        if _Debuff_Master == "ON" then
+            local _message_channel = string.format("%s @W%s'D! @C(@D%s@C)@w", _Channel, _CurrentKoboldSpell:upper(), _CurrentKoboldTarget)
+            SendNoEcho(_message_channel)
+        end
+
+        -- Message for external plugin does NOT include channel
+        if _Debuff_Master == "OFF" and _CommLog == "true" then
+            local _message_comm = string.format("@W%s'D! @C(@D%s@C)@w", _CurrentKoboldSpell:upper(), _CurrentKoboldTarget)
+            CallPlugin(_ExternalPluginID, "storeFromOutside", _message_comm)
+        end
     end
+
     _CurrentKoboldTarget = nil
     _CurrentKoboldSpell = nil
 end
@@ -252,49 +292,10 @@ end
    <!-- Triggers -->
   <triggers>
   
-    <!-- Trigger for SANCTUARY -->
-    <trigger
-    name="Sanc"
-    match="^The white aura around (.+)\'s body vanishes\.$"
-    enabled="y"
-	group="debuffs"
-    regexp="y"
-    send_to="12"
-    ignore_case="y"
-    sequence="100"
-	script="Announce"
-    />
-	
-    <!-- Trigger for REVERSE ALIGN -->
-    <trigger
-    name="RevEvil"
-    match="^You banish (.+?) to the forces of (shadow|light)\.$"
-    enabled="y"
-	group="debuffs"
-    regexp="y"
-    send_to="12"
-    ignore_case="y"
-    sequence="100"
-	script="Announce"
-    />
-	
     <!-- Trigger for WEAKEN -->
     <trigger
     name="Weaken"
     match="^(.*?) looks tired and weak\.$"
-    enabled="y"
-	group="debuffs"
-    regexp="y"
-    send_to="12"
-    ignore_case="y"
-    sequence="100"
-	script="Announce"
-    />
-
-	<!-- Trigger for RAW FLESH -->
-    <trigger
-    name="RawFlesh"
-    match="^(.*?)'s flesh is ripped from (.*?)'s body\.$"
     enabled="y"
 	group="debuffs"
     regexp="y"
@@ -330,89 +331,23 @@ end
 	script="Announce"
     />
 	
-	<!-- Trigger for RAVEN SPRAY -->
-    <trigger
-    name="Raven"
-    match="^Your acidic venom burns away (.+)\'s armor\.$"
-    enabled="y"
-	group="debuffs"
-    regexp="y"
-    send_to="12"
-    ignore_case="y"
-    sequence="100"
-	script="Announce"
-    />
-	
-	<!-- Trigger for MARBU -->
-    <trigger
-    name="Marbu"
-    match="^(.+) falls to (.+?) knees blinded\."
-    enabled="y"
-	group="debuffs"
-    regexp="y"
-    send_to="12"
-    ignore_case="y"
-    sequence="100"
-	script="Announce"
-    />
-	
-    <trigger
-    name="KsprayFirstLine"
-    match="^You spray (.+) with a huge rotting Kobold gland\.$"
-    enabled="y"
-    regexp="y"
-    ignore_case="y"
-    script="KoboldFirstLine"
-	/>
-    
-    <trigger
-    name="KoboldFirstLine"
-    match="^You spray (.+) with a rotting kobold gland\.$"
-    enabled="y"
-    regexp="y"
-    ignore_case="y"
-    script="KoboldFirstLine"
-	/>
-    
-    <trigger
-    name="KoboldSecondLine"
-    match="^(.+) turns pale and appears weakened\.$"
-    enabled="y"
-    regexp="y"
-    ignore_case="y"
-    script="KoboldSecondLine"
-	/>
-	
-	<!-- Trigger for HYDRA -->
-    <trigger
-    name="Hydra"
-    match="^(.+) appears to falter\. Your victim is in serious trouble\!$"
-    enabled="y"
-	group="debuffs"
-    regexp="y"
-    send_to="12"
-    ignore_case="y"
-    sequence="100"
-	script="Announce"
-    />
-	
-	<!-- Trigger for GREEN DEATH -->
-    <trigger
-    name="GreenDeath"
-    match="^(.+) appears much weaker and extremely vulnerable\."
-    enabled="y"
-	group="debuffs"
-    regexp="y"
-    send_to="12"
-    ignore_case="y"
-    sequence="100"
-	script="Announce"
-    />
-	
-	<!-- Trigger for GREEN DEATH -->
+	<!-- Trigger for EGO -->
     <trigger
     name="Ego"
     match="^You ridicule (.*?) about (.*?) childhood\.$"
+    enabled="y"
+	group="debuffs"
+    regexp="y"
+    send_to="12"
+    ignore_case="y"
+    sequence="100"
+	script="Announce"
+    />
+	
+	<!-- Trigger for RAW FLESH -->
+    <trigger
+    name="RawFlesh"
+    match="^(.*?)'s flesh is ripped from (.*?)'s body\.$"
     enabled="y"
 	group="debuffs"
     regexp="y"
@@ -447,6 +382,86 @@ end
     sequence="100"
 	script="Announce"
     />
+	
+	<!-- Trigger for MARBU -->
+    <trigger
+    name="Marbu"
+    match="^(.+) falls to (.+?) knees blinded\."
+    enabled="y"
+	group="debuffs"
+    regexp="y"
+    send_to="12"
+    ignore_case="y"
+    sequence="100"
+	script="Announce"
+    />
+	
+	<!-- Trigger for HYDRA -->
+    <trigger
+    name="Hydra"
+    match="^(.+) appears to falter\. Your victim is in serious trouble\!$"
+    enabled="y"
+	group="debuffs"
+    regexp="y"
+    send_to="12"
+    ignore_case="y"
+    sequence="100"
+	script="Announce"
+    />
+	
+	<!-- Trigger for GREEN DEATH -->
+    <trigger
+    name="GreenDeath"
+    match="^(.+) appears much weaker and extremely vulnerable\."
+    enabled="y"
+	group="debuffs"
+    regexp="y"
+    send_to="12"
+    ignore_case="y"
+    sequence="100"
+	script="Announce"
+    />
+
+	<!-- Trigger for RAVEN -->
+    <trigger
+    name="Raven"
+    match="^Your acidic venom burns away (.+)\'s armor\.$"
+    enabled="y"
+	group="debuffs"
+    regexp="y"
+    send_to="12"
+    ignore_case="y"
+    sequence="100"
+	script="Announce"
+    />
+	
+	<!-- Trigger for KOBOLDS -->
+    <trigger
+    name="KsprayFirstLine"
+    match="^You spray (.+) with a huge rotting Kobold gland\.$"
+    enabled="y"
+    regexp="y"
+    ignore_case="y"
+    script="KoboldFirstLine"
+	/>
+    
+    <trigger
+    name="KoboldFirstLine"
+    match="^You spray (.+) with a rotting kobold gland\.$"
+    enabled="y"
+    regexp="y"
+    ignore_case="y"
+    script="KoboldFirstLine"
+	/>
+    
+    <trigger
+    name="KoboldSecondLine"
+    match="^(.+) turns pale and appears weakened\.$"
+    enabled="y"
+    regexp="y"
+    ignore_case="y"
+    script="KoboldSecondLine"
+	/>
 
    <!-- Trigger for THIEF -->
 	
@@ -479,6 +494,34 @@ end
     name="Assassinate"
     match="^You assassinate (.+?) with cold efficiency\.$"
     enabled="y"
+    regexp="y"
+    send_to="12"
+    ignore_case="y"
+    sequence="100"
+	script="Announce"
+    />
+	
+	<!-- Trigger for SPECIAL -->
+	
+    <!-- Trigger for SANCTUARY -->
+    <trigger
+    name="Sanc"
+    match="^The white aura around (.+)\'s body vanishes\.$"
+    enabled="y"
+	group="debuffs"
+    regexp="y"
+    send_to="12"
+    ignore_case="y"
+    sequence="100"
+	script="Announce"
+    />
+	
+    <!-- Trigger for REVERSE ALIGN -->
+    <trigger
+    name="RevEvil"
+    match="^You banish (.+?) to the forces of (shadow|light)\.$"
+    enabled="y"
+	group="debuffs"
     regexp="y"
     send_to="12"
     ignore_case="y"
