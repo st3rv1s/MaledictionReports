@@ -36,6 +36,7 @@
 <!--  Aliases  -->
   <aliases>
   
+	<!-- Alias for turning on/off -->
     <alias
     match="^malrep$"
     enabled="y"
@@ -46,22 +47,33 @@
     >
     </alias>
 	
+	<!-- Alias for changing channel -->
+    <alias
+    match="^malrep\schannel\s(.*?)$"
+    name="SetChannel"
+    enabled="y"
+    omit_from_output="n"
+    regexp="y"
+    sequence="100"
+    script="SetChannel"
+    />
+	
 	<!-- Alias for checking update -->
     <alias
-      match="^malrep\supdate\scheck$"
-      enabled="y"
-      regexp="y"
-      sequence="99"
-      script="update_check_alias"
+    match="^malrep\supdate\scheck$"
+    enabled="y"
+    regexp="y"
+    sequence="99"
+    script="update_check_alias"
     />
     
     <!-- Alias for installing update -->
     <alias
-      match="^malrep\supdate\sinstall$"
-      enabled="y"
-      regexp="y"
-      sequence="99"
-      script="update_install_alias"
+    match="^malrep\supdate\sinstall$"
+    enabled="y"
+    regexp="y"
+    sequence="99"
+    script="update_install_alias"
     />
   
   </aliases>
@@ -143,7 +155,7 @@ json = require("json")
      end
      
      local currentVersion = GetPluginInfo(GetPluginID(), 19) or 0
-     local currentVerStr  = string.format("%1.3f", currentVersion)
+     local currentVerStr  = tostring(currentVersion)
      local remoteVerStr   = string.match(pluginData, '%s%s+version="([0-9%.]+)"')
      local remoteVersion  = tonumber(remoteVerStr or "") or 0
  
@@ -173,24 +185,62 @@ function OnHelp ()
   world.Note (world.GetPluginInfo (world.GetPluginID (), 3))
 end
 
-local debuff_master = "ON"
+local _Debuff_Master = "ON"
+local _Channel = "say"
+local _CurrentKoboldTarget = nil
+local _CurrentKoboldSpell = nil
 
 function debuff_toggle()
- 	if debuff_master == "ON"
+ 	if _Debuff_Master == "ON"
  		then
- 			debuff_master = "OFF"
+ 			_Debuff_Master = "OFF"
  			EnableGroup("debuffs", false)
 			ColourNote ("darkred", "dimgrey", "Malediction reports are DISABLED!")
-	elseif debuff_master == "OFF"
+	elseif _Debuff_Master == "OFF"
 		then
-			debuff_master = "ON"
+			_Debuff_Master = "ON"
 			EnableGroup("debuffs", true)
 			ColourNote ("limegreen", "dimgrey", "Malediction reports are ENABLED!")
 	end
 end
 
+function SetChannel(name, line, wildcards)
+    _Channel = wildcards[1]
+    SetVariable("Save_Channel", _Channel)
+    cnote("@WMALREP now broadcasts to @C" .. _Channel .. "@w")
+end
+
+function Announce(name, line, wildcards)
+    local target = wildcards[1] or "unknown"
+    local spell = name:upper()  -- Use the trigger name as the spell/malediction
+    -- Broadcast with color codes
+    SendNoEcho(string.format("%s @W%s'D! @C(@D%s@C)@w", _Channel, spell, target))
+end
+
+function KoboldFirstLine(name, line, wildcards)
+    _CurrentKoboldTarget = wildcards[1]
+    if string.find(line, "huge rotting Kobold", 1, true) then
+        _CurrentKoboldSpell = "KSPRAY"
+    else
+        _CurrentKoboldSpell = "KOBOLD"
+    end
+end
+
+function KoboldSecondLine(name, line, wildcards)
+    if _CurrentKoboldTarget and _CurrentKoboldSpell then
+		SendNoEcho(string.format("%s @W%s'D! @C(@D%s@C)@w", _Channel, _CurrentKoboldSpell:upper(), _CurrentKoboldTarget))
+    end
+    _CurrentKoboldTarget = nil
+    _CurrentKoboldSpell = nil
+end
+
 function OnPluginInstall()
 	OnHelp()
+	_Channel = GetVariable("Save_Channel") or "say"
+end
+
+function OnPluginSaveState()
+	SetVariable("Save_Channel", _Channel)
 end
 
    ]]>
@@ -202,387 +252,252 @@ end
    <!-- Triggers -->
   <triggers>
   
-    <!-- Trigger for FLIES -->
-    <trigger
-      name="Flies"
-      match="^You unleash a swarm of flies upon (.+?)!$"
-      enabled="y"
-	  group="debuffs"
-      regexp="y"
-      send_to="12"
-      ignore_case="y"
-      sequence="100" 
-    >
-      <send>
-	  -- Broadcast the malediction
-      SendNoEcho("gt @WFLIED! @C(@D%1@C)@Y")
-      </send>
-    </trigger>
-	
     <!-- Trigger for SANCTUARY -->
     <trigger
-      name="Sanc"
-      match="^The white aura around (.+)\'s body vanishes\.$"
-      enabled="y"
-	  group="debuffs"
-      regexp="y"
-      send_to="12"
-      ignore_case="y"
-      sequence="100" 
-    >
-      <send>
-	  -- Broadcast the malediction
-      SendNoEcho("say @WSANC OFF! @C(@D%1@C)@Y")
-      </send>
-    </trigger>
-	
-    <!-- Trigger for REVERSE ALIGN (EVIL) -->
-    <trigger
-      name="RevEvil"
-      match="^You banish (.+?) to the forces of shadow\.$"
-      enabled="y"
-	  group="debuffs"
-      regexp="y"
-      send_to="12"
-      ignore_case="y"
-      sequence="100" 
-    >
-      <send>
-	  -- Broadcast the malediction
-      SendNoEcho("gt @WREV'D! @C(@D%1@C)@Y")
-      </send>
-    </trigger>
-	
-    <!-- Trigger for REVERSE ALIGN (GOOD) -->
-    <trigger
-      name="RevGood"
-      match="^You banish (.+?) to the forces of light\.$"
-      enabled="y"
-	  group="debuffs"
-      regexp="y"
-      send_to="12"
-      ignore_case="y"
-      sequence="100" 
-    >
-      <send>
-	  -- Broadcast the malediction
-      SendNoEcho("gt @WREV'D! @C(@D%1@C)@Y")
-      </send>
-    </trigger>
-	
-    <!-- Trigger for WEAKEN -->
-    <trigger
-      name="Weaken"
-      match="^(.*?) looks tired and weak\.$"
-      enabled="y"
-	  group="debuffs"
-      regexp="y"
-      send_to="12"
-      ignore_case="y"
-      sequence="100" 
-    >
-      <send>
-	  -- Broadcast the malediction
-      SendNoEcho("say @WWEAKEN'D! @C(@D%1@C)@Y")
-      </send>
-    </trigger>
-
-	<!-- Trigger for RAW FLESH -->
-    <trigger
-      name="RawFlesh"
-      match="^(.*?) flesh is ripped from (.*?) body\.$"
-      enabled="y"
-	  group="debuffs"
-      regexp="y"
-      send_to="12"
-      ignore_case="y"
-      sequence="100" 
-    >
-      <send>
-	  -- Broadcast the malediction
-      SendNoEcho("say @WRAW'D! @C(@D%1@C)@Y")
-      </send>
-    </trigger>
-	
-	<!-- Trigger for SOFTEN -->
-    <trigger
-      name="Soften"
-      match="^(.*?)\'s armor softens\.$"
-      enabled="y"
-	  group="debuffs"
-      regexp="y"
-      send_to="12"
-      ignore_case="y"
-      sequence="100" 
-    >
-      <send>
-	  -- Broadcast the malediction
-      SendNoEcho("say @WSOFTEN'D! @C(@D%1@C)@Y")
-      </send>
-    </trigger>
-	
-	<!-- Trigger for RUNE of IX -->
-    <trigger
-      name="Rune"
-      match="^You mark (.+) with a Rune of IX!"
-      enabled="y"
-	  group="debuffs"
-      regexp="y"
-      send_to="12"
-      ignore_case="y"
-      sequence="100" 
-    >
-      <send>
-	  -- Broadcast the malediction
-      SendNoEcho("say @WRUNE'D! @C(@D%1@C)@Y")
-      </send>
-    </trigger>
-	
-	<!-- Trigger for RAVEN SPRAY -->
-    <trigger
-      name="Raven"
-      match="^Your acidic venom burns away (.+)\'s armor\.$"
-      enabled="y"
-	  group="debuffs"
-      regexp="y"
-      send_to="12"
-      ignore_case="y"
-      sequence="100" 
-    >
-      <send>
-	  -- Broadcast the malediction
-      SendNoEcho("say @WRAVEN'D! @C(@D%1@C)@Y")
-      </send>
-    </trigger>
-	
-	<!-- Trigger for MARBU -->
-    <trigger
-      name="Marbu"
-      match="^(.+) falls to (.*?) knees blinded."
-      enabled="y"
-	  group="debuffs"
-      regexp="y"
-      send_to="12"
-      ignore_case="y"
-      sequence="100" 
-    >
-      <send>
-	  -- Broadcast the malediction
-      SendNoEcho("say @WMARBU'D! @C(@D%1@C)@Y")
-      </send>
-    </trigger>
-	
-  <!-- Trigger for the first line of Kspray -->
-  <trigger
-    name="KsprayFirstLine"
-    match="^You spray (.+) with a huge rotting Kobold gland\.$"
+    name="Sanc"
+    match="^The white aura around (.+)\'s body vanishes\.$"
     enabled="y"
 	group="debuffs"
     regexp="y"
     send_to="12"
     ignore_case="y"
     sequence="100"
-    >
-    <send>
-      -- Store the matched part and set the context for Kspray
-      world.SetVariable("KsprayTarget", "%1")
-      world.SetVariable("CurrentAction", "Kspray")
-    </send>
-    </trigger>
-    
-    <!-- Trigger for the first line of Kobold -->
+	script="Announce"
+    />
+	
+    <!-- Trigger for REVERSE ALIGN -->
     <trigger
-      name="KoboldFirstLine"
-      match="^You spray (.+) with a rotting kobold gland\.$"
-      enabled="y"
-	  group="debuffs"
-      regexp="y"
-      send_to="12"
-      ignore_case="y"
-      sequence="110"
-      >
-      <send>
-        -- Store the matched part and set the context for Kobold
-        world.SetVariable("KoboldTarget", "%1")
-        world.SetVariable("CurrentAction", "Kobold")
-      </send>
-    </trigger>
-    
-    <!-- Combined trigger for the second line -->
+    name="RevEvil"
+    match="^You banish (.+?) to the forces of (shadow|light)\.$"
+    enabled="y"
+	group="debuffs"
+    regexp="y"
+    send_to="12"
+    ignore_case="y"
+    sequence="100"
+	script="Announce"
+    />
+	
+    <!-- Trigger for WEAKEN -->
     <trigger
-      name="SecondLineCombined"
-      match="^(.+) turns pale and appears weakened\.$"
-      enabled="y"
-	  group="debuffs"
-      regexp="y"
-      send_to="12"
-      ignore_case="y"
-      sequence="120"
-      >
-      <send>
-        -- Check the current action context and act accordingly
-        local action = world.GetVariable("CurrentAction")
-        local target = nil
-        
-        if action == "Kspray" then
-          target = world.GetVariable("KsprayTarget")
-          if target then
-            SendNoEcho(string.format("say @WKSPRAY'D! @C(@D%s@C)@Y", target))
-            -- Clear the variable after use
-            world.SetVariable("KsprayTarget", "")
-          end
-        elseif action == "Kobold" then
-          target = world.GetVariable("KoboldTarget")
-          if target then
-            SendNoEcho(string.format("say @WKOBOL'D! @C(@D%s@C)@Y", target))
-            -- Clear the variable after use
-            world.SetVariable("KoboldTarget", "")
-          end
-        end
-        
-        -- Clear the action context after processing
-        world.SetVariable("CurrentAction", "")
-      </send>
-    </trigger>
+    name="Weaken"
+    match="^(.*?) looks tired and weak\.$"
+    enabled="y"
+	group="debuffs"
+    regexp="y"
+    send_to="12"
+    ignore_case="y"
+    sequence="100"
+	script="Announce"
+    />
+
+	<!-- Trigger for RAW FLESH -->
+    <trigger
+    name="RawFlesh"
+    match="^(.*?)'s flesh is ripped from (.*?)'s body\.$"
+    enabled="y"
+	group="debuffs"
+    regexp="y"
+    send_to="12"
+    ignore_case="y"
+    sequence="100"
+	script="Announce"
+    />
+
+	<!-- Trigger for SOFTEN -->
+    <trigger
+    name="Soften"
+    match="^(.*?)\'s armor softens\.$"
+    enabled="y"
+	group="debuffs"
+    regexp="y"
+    send_to="12"
+    ignore_case="y"
+    sequence="100"
+	script="Announce"	
+    />
+	
+	<!-- Trigger for RUNE of IX -->
+    <trigger
+    name="Rune"
+    match="^You mark (.+) with a Rune of IX\!"
+    enabled="y"
+	group="debuffs"
+    regexp="y"
+    send_to="12"
+    ignore_case="y"
+    sequence="100"
+	script="Announce"
+    />
+	
+	<!-- Trigger for RAVEN SPRAY -->
+    <trigger
+    name="Raven"
+    match="^Your acidic venom burns away (.+)\'s armor\.$"
+    enabled="y"
+	group="debuffs"
+    regexp="y"
+    send_to="12"
+    ignore_case="y"
+    sequence="100"
+	script="Announce"
+    />
+	
+	<!-- Trigger for MARBU -->
+    <trigger
+    name="Marbu"
+    match="^(.+) falls to (.+?) knees blinded\."
+    enabled="y"
+	group="debuffs"
+    regexp="y"
+    send_to="12"
+    ignore_case="y"
+    sequence="100"
+	script="Announce"
+    />
+	
+    <trigger
+    name="KsprayFirstLine"
+    match="^You spray (.+) with a huge rotting Kobold gland\.$"
+    enabled="y"
+    regexp="y"
+    ignore_case="y"
+    script="KoboldFirstLine"
+	/>
+    
+    <trigger
+    name="KoboldFirstLine"
+    match="^You spray (.+) with a rotting kobold gland\.$"
+    enabled="y"
+    regexp="y"
+    ignore_case="y"
+    script="KoboldFirstLine"
+	/>
+    
+    <trigger
+    name="KoboldSecondLine"
+    match="^(.+) turns pale and appears weakened\.$"
+    enabled="y"
+    regexp="y"
+    ignore_case="y"
+    script="KoboldSecondLine"
+	/>
 	
 	<!-- Trigger for HYDRA -->
     <trigger
-      name="Hydra"
-      match="^(.+) appears to falter. Your victim is in serious trouble\!$"
-      enabled="y"
-	  group="debuffs"
-      regexp="y"
-      send_to="12"
-      ignore_case="y"
-      sequence="100" 
-    >
-      <send>
-	  -- Broadcast the malediction
-      SendNoEcho("say @WHYDRA'D! @C(@D%1@C)@Y")
-      </send>
-    </trigger>
+    name="Hydra"
+    match="^(.+) appears to falter\. Your victim is in serious trouble\!$"
+    enabled="y"
+	group="debuffs"
+    regexp="y"
+    send_to="12"
+    ignore_case="y"
+    sequence="100"
+	script="Announce"
+    />
 	
 	<!-- Trigger for GREEN DEATH -->
     <trigger
-      name="GreenDeath"
-      match="^(.+) appears much weaker and extremely vulnerable."
-      enabled="y"
-	  group="debuffs"
-      regexp="y"
-      send_to="12"
-      ignore_case="y"
-      sequence="100" 
-    >
-      <send>
-	  -- Broadcast the malediction
-      SendNoEcho("say @WGREEN DEATH'D! @C(@D%1@C)@Y")
-      </send>
-    </trigger>
+    name="GreenDeath"
+    match="^(.+) appears much weaker and extremely vulnerable\."
+    enabled="y"
+	group="debuffs"
+    regexp="y"
+    send_to="12"
+    ignore_case="y"
+    sequence="100"
+	script="Announce"
+    />
 	
 	<!-- Trigger for GREEN DEATH -->
     <trigger
-      name="Ego"
-      match="^You ridicule (.*?) about (.*?) childhood\.$"
-      enabled="y"
-	  group="debuffs"
-      regexp="y"
-      send_to="12"
-      ignore_case="y"
-      sequence="100" 
-    >
-      <send>
-	  -- Broadcast the malediction
-      SendNoEcho("say @WEGO'D! @C(@D%1@C)@Y")
-      </send>
-    </trigger>
+    name="Ego"
+    match="^You ridicule (.*?) about (.*?) childhood\.$"
+    enabled="y"
+	group="debuffs"
+    regexp="y"
+    send_to="12"
+    ignore_case="y"
+    sequence="100"
+	script="Announce"
+    />
 	
 	<!-- Trigger for DISEASE -->
     <trigger
-      name="Disease"
-      match="^(.+) looks unwell."
-      enabled="y"
-	  group="debuffs"
-      regexp="y"
-      send_to="12"
-      ignore_case="y"
-      sequence="100" 
-    >
-      <send>
-	  -- Broadcast the malediction
-      SendNoEcho("say @WDISEASE'D! @C(@D%1@C)@Y")
-      </send>
-    </trigger>
+    name="Disease"
+    match="^(.+) looks unwell\."
+    enabled="y"
+	group="debuffs"
+    regexp="y"
+    send_to="12"
+    ignore_case="y"
+    sequence="100"
+	script="Announce"
+    />
 	
 	<!-- Trigger for CURSE -->
     <trigger
-      name="Curse"
-      match="^(.*?) looks (.*?) uncomfortable\.$"
-      enabled="y"
-	  group="debuffs"
-      regexp="y"
-      send_to="12"
-      ignore_case="y"
-      sequence="100" 
-    >
-      <send>
-	  -- Broadcast the malediction
-      SendNoEcho("say @WCURSE'D! @C(@D%1@C)@Y")
-      </send>
-    </trigger>
+    name="Curse"
+    match="^(.*?) looks (.*?) uncomfortable\.$"
+    enabled="y"
+	group="debuffs"
+    regexp="y"
+    send_to="12"
+    ignore_case="y"
+    sequence="100"
+	script="Announce"
+    />
 
    <!-- Trigger for THIEF -->
 	
 	<!-- Trigger for NECRO -->
     <trigger
-      name="Necro"
-      match="^You reach out and touch (.+), injecting (.+) with deadly necrotic poison\.$"
-      enabled="y"
-	  group="debuffs"
-      regexp="y"
-      send_to="12"
-      ignore_case="y"
-      sequence="100" 
-    >
-      <send>
-	  -- Broadcast the malediction
-      SendNoEcho("say @WNECRO'D! @C(@D%1@C)@Y")
-      </send>
-    </trigger>
+    name="Necro"
+    match="^You reach out and touch (.+), injecting (.+) with deadly necrotic poison\.$"
+    enabled="y"
+	group="debuffs"
+    regexp="y"
+    send_to="12"
+    ignore_case="y"
+    sequence="100"
+	script="Announce"
+    />
 	
     <trigger
-      name="Balor"
-      match="^You sense that your poison has greatly reduced (.*?)'?s? health\.$"
-      enabled="y"
-	  group="debuffs"
-      regexp="y"
-      send_to="12"
-      ignore_case="y"
-      sequence="100"
-    >
-      <send>
-      -- Broadcast the malediction
-      SendNoEcho("say @WBALOR'D! @C(@D%1@C)@Y")
-      </send>
-    </trigger>
+    name="Balor"
+    match="^You sense that your poison has greatly reduced (.+?)'?s? health\.$"
+    enabled="y"
+	group="debuffs"
+    regexp="y"
+    send_to="12"
+    ignore_case="y"
+    sequence="100"
+	script="Announce"
+    />
 	
 	<trigger
-      name="Assassinate"
-      match="^You assassinate (/+?) with cold efficiency\.$"
-      enabled="y"
-	  group="debuffs"
-      regexp="y"
-      send_to="12"
-      ignore_case="y"
-      sequence="100"
-    >
-      <send>
-      -- Broadcast the malediction
-      SendNoEcho("gt @WASS'D @C(@D%1@C)@Y")
-      </send>
-    </trigger>
+    name="Assassinate"
+    match="^You assassinate (.+?) with cold efficiency\.$"
+    enabled="y"
+    regexp="y"
+    send_to="12"
+    ignore_case="y"
+    sequence="100"
+	script="Announce"
+    />
+	
+	<!-- Trigger for FLIES -->
+    <trigger
+    name="Flies"
+    match="^You unleash a swarm of flies upon (.+?)\!$"
+    enabled="y"
+    regexp="y"
+    send_to="12"
+    ignore_case="y"
+    sequence="100"
+	script="Announce"
+    />
 	
   </triggers>
 
 </muclient>
-
-
