@@ -86,6 +86,7 @@ require("async")
 json = require("json")
 
  plugin_url = "https://raw.githubusercontent.com/st3rv1s/MaledictionReport/refs/heads/main/MaledictionReport.xml"
+ plugin_url = "https://raw.githubusercontent.com/st3rv1s/MaledictionReport/refs/heads/main/MaledictionReport.xml"
  SetVariable("DownloadURL", plugin_url)
  plugin_protocol = "HTTPS"
  plugin_prefix = "[MaledictionReport]"
@@ -346,7 +347,7 @@ end
 	
 	<!-- Trigger for RAW FLESH -->
     <trigger
-    name="RawFlesh"
+    name="Raw"
     match="^(.*?)'s flesh is ripped from (.*?)'s body\.$"
     enabled="y"
 	group="debuffs"
@@ -518,7 +519,7 @@ end
 	
     <!-- Trigger for REVERSE ALIGN -->
     <trigger
-    name="RevEvil"
+    name="Rev"
     match="^You banish (.+?) to the forces of (shadow|light)\.$"
     enabled="y"
 	group="debuffs"
@@ -531,7 +532,7 @@ end
 	
 	<!-- Trigger for FLIES -->
     <trigger
-    name="Flies"
+    name="Fly"
     match="^You unleash a swarm of flies upon (.+?)\!$"
     enabled="y"
     regexp="y"
@@ -544,6 +545,3 @@ end
   </triggers>
 
 </muclient>
-
-
-
