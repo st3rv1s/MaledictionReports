@@ -412,7 +412,7 @@ end
 	
 	<!-- Trigger for GREEN DEATH -->
     <trigger
-    name="GreenDeath"
+    name="Green"
     match="^(.+) appears much weaker and extremely vulnerable\."
     enabled="y"
 	group="debuffs"
@@ -545,3 +545,4 @@ end
   </triggers>
 
 </muclient>
+
